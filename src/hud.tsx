@@ -120,7 +120,7 @@ function Panel() {
         }}
       >
         <img
-          src={chrome.runtime.getURL("logo.png")}
+          src={chrome?.runtime?.getURL ? chrome.runtime.getURL("logo.png") : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' fill='%23ff6b6b'/%3E%3C/svg%3E"}
           alt="Labubus"
           style={{ width: 40, height: 40, borderRadius: 10, display: "block" }}
         />
@@ -144,7 +144,7 @@ function Panel() {
         }}
       >
         <img
-          src={chrome.runtime.getURL("logo.png")}
+          src={chrome?.runtime?.getURL ? chrome.runtime.getURL("logo.png") : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Crect width='48' height='48' fill='%23ff6b6b'/%3E%3C/svg%3E"}
           alt="Labubus"
           style={{ width: 48, height: 48, display: "block", borderRadius: 10 }}
         />
@@ -224,5 +224,12 @@ function Panel() {
 }
 
 // mount React
-const rootEl = ensureHud()
-createRoot(rootEl).render(<Panel />)
+console.log('[HUD] Starting HUD renderer...');
+try {
+  const rootEl = ensureHud()
+  console.log('[HUD] Container created, mounting React...');
+  createRoot(rootEl).render(<Panel />)
+  console.log('[HUD] Successfully mounted React component');
+} catch (error) {
+  console.error('[HUD] Failed to mount:', error);
+}
