@@ -1,23 +1,11 @@
 (() => {
-	console.log("[MarbleHUD] Starting...");
 	const TAG = "[MarbleHUD]";
 	const num = (v) => Number.isFinite(v) ? v.toFixed(2) : "?";
 	let lastLog = 0;
   
-	// Matrix functions unchanged
-	function invert4(m) {
-	  // (full code here - same as before)
-	}
-  
-	function fovFromProj(mat) {
-	  const f = Array.isArray(mat) ? mat[5] : mat?.[5];
-	  return f ? (2 * Math.atan(1 / f) * 180 / Math.PI) : null;
-	}
-  
-	// Quaternion rotate vec3
+	// Rotate forward vector (0,0,-1) by quaternion [x,y,z,w]
 	function rotateVecByQuat(q, v) {
-	  const qx = q[0], qy = q[1], qz = q[2], qw = q[3];
-	  const vx = v[0], vy = v[1], vz = v[2];
+	  const [qx,qy,qz,qw] = q, [vx,vy,vz] = v;
 	  const tx = 2 * (qy * vz - qz * vy);
 	  const ty = 2 * (qz * vx - qx * vz);
 	  const tz = 2 * (qx * vy - qy * vx);
@@ -30,9 +18,20 @@
   
 	const state = { proj: null, pos: null, quat: null, fov: null };
   
+	// simple 1st-order smoothing
+	const smooth = {
+	  pos: null,    // [x,y,z]
+	  dir: null,    // [fx,fy,fz]
+	  alpha: 0.25,  // smoothing factor
+	};
+	function lerp(a, b, t) { return a + (b - a) * t; }
+	function nrm(x,y,z) {
+	  const L = Math.hypot(x,y,z) || 1;
+	  return [x/L, y/L, z/L];
+	}
+  
 	function install(glProto) {
 	  if (!glProto || glProto.__mh_installed) return;
-	  console.log(TAG, "Installing on", glProto.constructor.name);
   
 	  const uniformNames = new WeakMap();
 	  const origGetUniformLocation = glProto.getUniformLocation;
@@ -43,17 +42,18 @@
 	  };
   
 	  const origUM4 = glProto.uniformMatrix4fv;
-	  const origUniform3f = glProto.uniform3f;
-	  const origUniform4f = glProto.uniform4f;
+	  const origU3 = glProto.uniform3f;
+	  const origU4 = glProto.uniform4f;
   
 	  glProto.uniformMatrix4fv = function(location, transpose, data) {
-		if (data.length === 16) {
+		if (data && data.length === 16) {
 		  const name = uniformNames.get(location) || "";
 		  if (name === "projectionMatrix") {
 			try {
 			  state.proj = new Float32Array(data);
-			  state.fov = fovFromProj(state.proj);
-			} catch (e) { console.warn(TAG, "Error PROJ:", e); }
+			  const f = state.proj?.[5];
+			  state.fov = f ? (2 * Math.atan(1 / f) * 180 / Math.PI) : null;
+			} catch {}
 		  }
 		}
 		return origUM4.call(this, location, transpose, data);
@@ -64,7 +64,7 @@
 		if (name === "renderToViewPos") {
 		  state.pos = [x, y, z];
 		}
-		return origUniform3f.call(this, location, x, y, z);
+		return origU3.call(this, location, x, y, z);
 	  };
   
 	  glProto.uniform4f = function(location, x, y, z, w) {
@@ -72,62 +72,73 @@
 		if (name === "renderToViewQuat") {
 		  state.quat = [x, y, z, w];
 		}
-		return origUniform4f.call(this, location, x, y, z, w);
+		return origU4.call(this, location, x, y, z, w);
 	  };
   
 	  const origDrawArrays = glProto.drawArrays;
 	  const origDrawElements = glProto.drawElements;
-	  glProto.drawArrays = function() { try { tickLog(); } catch {} return origDrawArrays.apply(this, arguments); };
-	  glProto.drawElements = function() { try { tickLog(); } catch {} return origDrawElements.apply(this, arguments); };
+  
+	  function tick() {
+		const now = performance.now();
+		if (now - lastLog < 120) return; // ~8fps sampling, reduce spam
+		lastLog = now;
+  
+		// only proceed if both pos & quat available
+		if (!state.pos || !state.quat) return;
+  
+		let px = state.pos[0], py = state.pos[1], pz = state.pos[2];
+		const forward = rotateVecByQuat(state.quat, [0, 0, -1]);
+		let [fx, fy, fz] = nrm(forward[0], forward[1], forward[2]);
+  
+		// smoothing
+		if (!smooth.pos) smooth.pos = [px, py, pz];
+		else smooth.pos = [ lerp(smooth.pos[0], px, smooth.alpha),
+							lerp(smooth.pos[1], py, smooth.alpha),
+							lerp(smooth.pos[2], pz, smooth.alpha) ];
+		if (!smooth.dir) smooth.dir = [fx, fy, fz];
+		else smooth.dir = nrm(
+		  lerp(smooth.dir[0], fx, smooth.alpha),
+		  lerp(smooth.dir[1], fy, smooth.alpha),
+		  lerp(smooth.dir[2], fz, smooth.alpha)
+		);
+  
+		px = smooth.pos[0]; py = smooth.pos[1]; pz = smooth.pos[2];
+		fx = smooth.dir[0]; fy = smooth.dir[1]; fz = smooth.dir[2];
+  
+		const yawDeg = Math.atan2(fx, fz) * 180 / Math.PI;
+		const pitchDeg = Math.asin(Math.max(-1, Math.min(1, fy))) * 180 / Math.PI;
+		const fov = state.fov;
+  
+		// log
+		console.log(
+		  `${TAG} Position (x,y,z): ${num(px)}, ${num(py)}, ${num(pz)} | ` +
+		  `FOV: ${num(fov)} | ` +
+		  `Look Direction (x,y,z): ${num(fx)}, ${num(fy)}, ${num(fz)} | ` +
+		  `Angles (yaw, pitch deg): ${num(yawDeg)}, ${num(pitchDeg)}`
+		);
+  
+		// broadcast numeric payload
+		try {
+		  window.postMessage({
+			__mt: true,
+			type: "MT_COORDS",
+			x: px, y: py, z: pz,
+			fx, fy, fz,
+			fov,
+			yawDeg, pitchDeg
+		  }, "*");
+		} catch {}
+	  }
+  
+	  glProto.drawArrays   = function() { try { tick(); } catch {} return origDrawArrays.apply(this, arguments); };
+	  glProto.drawElements = function() { try { tick(); } catch {} return origDrawElements.apply(this, arguments); };
   
 	  glProto.__mh_installed = true;
-	  console.log(TAG, "Installed");
 	}
   
-	function tickLog() {
-	  const now = performance.now();
-	  if (now - lastLog < 200) return;
-	  lastLog = now;
-  
-	  let px = "?", py = "?", pz = "?", fx = "?", fy = "?", fz = "?", yawDeg = "?", pitchDeg = "?";
-	  let fov = state.fov;
-  
-	  if (state.pos) {
-		px = state.pos[0]; py = state.pos[1]; pz = state.pos[2];
-	  }
-	  if (state.quat) {
-		// Rotate forward vector (0,0,-1) by quaternion for look direction
-		const forward = rotateVecByQuat(state.quat, [0, 0, -1]);
-		fx = forward[0]; fy = forward[1]; fz = forward[2];
-		// Yaw/pitch from forward
-		yawDeg = Math.atan2(fx, fz) * (180 / Math.PI);
-		pitchDeg = Math.asin(Math.max(-1, Math.min(1, fy))) * (180 / Math.PI);
-	  }
-  
-	  console.log(
-		`${TAG} Position (x,y,z): ${num(px)}, ${num(py)}, ${num(pz)} | ` +
-		`FOV: ${num(fov)} | ` +
-		`Look Direction (x,y,z): ${num(fx)}, ${num(fy)}, ${num(fz)} | ` +
-		`Angles (yaw, pitch deg): ${num(yawDeg)}, ${num(pitchDeg)}`
-	  );
-
-	  try {
-		window.postMessage({
-		  __mt: true,
-		  type: "MT_COORDS",
-		  x: +px, y: +py, z: +pz,
-		  fx: +fx, fy: +fy, fz: +fz,
-		  fov: +fov,
-		  yawDeg: +yawDeg, 
-		  pitchDeg: +pitchDeg
-		}, "*");
-	  } catch {}
-	}
-  
-	// Install (same)
 	function tryInstall() {
 	  let installed = false;
-	  try { if (WebGLRenderingContext?.prototype) { install(WebGLRenderingContext.prototype); installed = true; } } catch {}
+	  try { if (WebGLRenderingContext?.prototype)  { install(WebGLRenderingContext.prototype);  installed = true; } } catch {}
 	  try { if (WebGL2RenderingContext?.prototype) { install(WebGL2RenderingContext.prototype); installed = true; } } catch {}
 	  return installed;
 	}
@@ -141,7 +152,8 @@
 	  return ctx;
 	};
   
+	console.log(TAG, "Starting…");
 	tryInstall();
 	setTimeout(() => tryInstall(), 2000);
-	console.log(TAG, "Init complete");
   })();
+  

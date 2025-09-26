@@ -7,7 +7,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 const LABUBU_ID = "labubu-renderer";
 const SIZE = 160;
 const TARGET = new THREE.Vector3(-1.55, 0.17, 2.78);
-const MAX_DISTANCE = 1.0; // how close user must be
+const MAX_DISTANCE = 2.0; // how close user must be
 
 function ensureLabubuContainer(): HTMLDivElement {
   let el = document.getElementById(LABUBU_ID) as HTMLDivElement | null;
