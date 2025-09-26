@@ -110,6 +110,18 @@
 		`Look Direction (x,y,z): ${num(fx)}, ${num(fy)}, ${num(fz)} | ` +
 		`Angles (yaw, pitch deg): ${num(yawDeg)}, ${num(pitchDeg)}`
 	  );
+
+	  try {
+		window.postMessage({
+		  __mt: true,
+		  type: "MT_COORDS",
+		  x: +px, y: +py, z: +pz,
+		  fx: +fx, fy: +fy, fz: +fz,
+		  fov: +fov,
+		  yawDeg: +yawDeg, 
+		  pitchDeg: +pitchDeg
+		}, "*");
+	  } catch {}
 	}
   
 	// Install (same)
