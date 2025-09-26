@@ -1,0 +1,25 @@
+{
+	"name": "Marble HUD",
+	"version": "0.0.1",
+	"manifest_version": 3,
+	"description": "React HUD on Marble worlds.",
+	"permissions": ["storage"],
+	"host_permissions": ["https://marble.worldlabs.ai/*"],
+	"content_scripts": [
+	  {
+		"matches": ["https://marble.worldlabs.ai/*"],
+		"js": ["page-core.js"],
+		"run_at": "document_start",
+		"world": "MAIN",
+		"all_frames": true
+	  },
+	  {
+		"matches": ["https://marble.worldlabs.ai/*"],
+		"js": ["hud.js"],
+		"run_at": "document_end"
+	  }
+	],
+	"web_accessible_resources": [
+	  { "resources": ["logo.png"], "matches": ["https://marble.worldlabs.ai/*"] }
+	]
+  }
