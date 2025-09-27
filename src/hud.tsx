@@ -317,7 +317,7 @@ function Panel() {
         {/* Hint + your score */}
         <Card title="Today">
           <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-            <span>{today?.hint ?? "Explore the world, the Labubu awaits…"}</span>
+            <span>{today?.hint ?? "Explore more worlds"}</span>
             <span style={{ opacity: 0.9 }}>Score: <b>{myScore}</b></span>
           </div>
           <div style={{ fontSize: 11, opacity: 0.8, paddingTop: 6 }}>

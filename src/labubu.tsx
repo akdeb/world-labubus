@@ -32,6 +32,15 @@ function ensureLabubuContainer(): HTMLDivElement {
   return el;
 }
 
+function getCurrentWorldId(): string | null {
+  try {
+    const m = location.pathname.match(/\/world\/([0-9a-fA-F-]{36})/);
+    return m ? m[1] : null;
+  } catch {
+    return null;
+  }
+}
+
 // stable player id (same logic as HUD)
 async function getOrCreatePlayerId(): Promise<string> {
   try {
@@ -94,6 +103,18 @@ function LabubuThree() {
         const t: any = await getToday();
         console.log("[Labubu] getToday() result:", t); // 🔊 see what fields exist
         if (dead || !t) return;
+
+        // Gate by world_id
+        const currentWorldId = getCurrentWorldId();
+        const todaysWorldId: string | null = t.world_id ?? null;
+        if (!currentWorldId || !todaysWorldId || currentWorldId !== todaysWorldId) {
+          console.log("[Labubu] Skipping render: world_id mismatch", { currentWorldId, todaysWorldId });
+          labubuIdRef.current = null;
+          targetRef.current = null;
+          const container = document.getElementById(LABUBU_ID) as HTMLDivElement | null;
+          if (container) container.style.display = "none";
+          return;
+        }
 
         // id can be labubu_id (your schema) or id (older code)
         const lbId: string | null = t.labubu_id ?? t.id ?? null;

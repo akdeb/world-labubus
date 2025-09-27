@@ -13,15 +13,12 @@ if (!BASE) {
 }
 
 export type Labubu = {
-  id: string;
+  labubu_id: string;
   day_no: number;
   world_id: string;
   hint: string | null;
   pos: { x: number; y: number; z: number };  // ✅ now using jsonb pos
-  radius_m: number;
-  max_angle_deg: number;
-  active_from: string;
-  active_to: string;
+  date: string;
 };
 
 export type LeaderRow = { 
