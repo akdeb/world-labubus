@@ -4,7 +4,8 @@
 	"manifest_version": 3,
 	"description": "React HUD on Marble worlds.",
 	"permissions": ["storage"],
-	"host_permissions": ["https://marble.worldlabs.ai/*"],
+	"host_permissions": ["https://marble.worldlabs.ai/*",   "https://*.supabase.co/*",
+	"https://*.functions.supabase.co/*"],
   
 	"content_scripts": [
 	  {
