@@ -154,6 +154,7 @@ function LabubuThree() {
 
   // 🛰️ Listen for coords -> show/hide
   useEffect(() => {
+    let lastNear = false;
     const onMsg = (ev: MessageEvent) => {
       const d = ev?.data;
       if (!d || !d.__mt) return;
@@ -180,6 +181,13 @@ function LabubuThree() {
           const isClaimed = claimedRef.current === true;
           container.style.display = shouldShow ? "block" : "none";
           container.style.cursor = shouldShow && !isClaimed ? "pointer" : "default";
+        }
+
+        if (shouldShow !== lastNear) {
+          lastNear = shouldShow;
+          try {
+            window.dispatchEvent(new CustomEvent("LABUBU_PROXIMITY", { detail: { near: shouldShow } }));
+          } catch {}
         }
       }
     };
@@ -328,6 +336,7 @@ function LabubuThree() {
           console.log("[Labubu] Claimed! New score:", res.user_score);
           claimedRef.current = true;
           applyClaimedLook(true);
+          try { window.dispatchEvent(new CustomEvent("LABUBU_CLAIMED")); } catch {}
         }
       } catch (e) {
         console.error("[Labubu] Claim error", e);

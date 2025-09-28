@@ -8,7 +8,7 @@ export default defineConfig({
     sourcemap: true,
     cssCodeSplit: false, // keep it all in one JS file
     rollupOptions: {
-      input: { hud: "src/main.ts" }, // single input that imports both
+      input: { hud: "src/main.ts",  }, // single input that imports both
       output: {
         format: "iife",             // content scripts can't be ESM
         entryFileNames: "hud.js",   // keep manifest unchanged

@@ -83,51 +83,61 @@
 		if (now - lastLog < 120) return; // ~8fps sampling, reduce spam
 		lastLog = now;
   
-		// only proceed if both pos & quat available
-		if (!state.pos || !state.quat) return;
-  
-		let px = state.pos[0], py = state.pos[1], pz = state.pos[2];
-		const forward = rotateVecByQuat(state.quat, [0, 0, -1]);
-		let [fx, fy, fz] = nrm(forward[0], forward[1], forward[2]);
-  
-		// smoothing
-		if (!smooth.pos) smooth.pos = [px, py, pz];
-		else smooth.pos = [ lerp(smooth.pos[0], px, smooth.alpha),
-							lerp(smooth.pos[1], py, smooth.alpha),
-							lerp(smooth.pos[2], pz, smooth.alpha) ];
-		if (!smooth.dir) smooth.dir = [fx, fy, fz];
-		else smooth.dir = nrm(
-		  lerp(smooth.dir[0], fx, smooth.alpha),
-		  lerp(smooth.dir[1], fy, smooth.alpha),
-		  lerp(smooth.dir[2], fz, smooth.alpha)
-		);
-  
-		px = smooth.pos[0]; py = smooth.pos[1]; pz = smooth.pos[2];
-		fx = smooth.dir[0]; fy = smooth.dir[1]; fz = smooth.dir[2];
-  
-		const yawDeg = Math.atan2(fx, fz) * 180 / Math.PI;
-		const pitchDeg = Math.asin(Math.max(-1, Math.min(1, fy))) * 180 / Math.PI;
-		const fov = state.fov;
-  
-		// log
-		console.log(
-		  `${TAG} Position (x,y,z): ${num(px)}, ${num(py)}, ${num(pz)} | ` +
-		  `FOV: ${num(fov)} | ` +
-		  `Look Direction (x,y,z): ${num(fx)}, ${num(fy)}, ${num(fz)} | ` +
-		  `Angles (yaw, pitch deg): ${num(yawDeg)}, ${num(pitchDeg)}`
-		);
-  
-		// broadcast numeric payload
-		try {
-		  window.postMessage({
-			__mt: true,
-			type: "MT_COORDS",
-			x: px, y: py, z: pz,
-			fx, fy, fz,
-			fov,
-			yawDeg, pitchDeg
-		  }, "*");
-		} catch {}
+// only proceed if both pos & quat available
+if (!state.pos || !state.quat) return;
+
+// raw (view-space) values
+const tview = state.pos;                // translation in view space
+const forward = rotateVecByQuat(state.quat, [0, 0, -1]); // camera forward (world)
+let [fx, fy, fz] = nrm(forward[0], forward[1], forward[2]);
+
+// reconstruct camera world position: p_world = - R * t_view
+const rTv = rotateVecByQuat(state.quat, tview);
+let cx = -rTv[0], cy = -rTv[1], cz = -rTv[2];
+
+// smoothing (optional, keep if you like)
+if (!smooth.pos) smooth.pos = [cx, cy, cz];
+else smooth.pos = [
+  lerp(smooth.pos[0], cx, smooth.alpha),
+  lerp(smooth.pos[1], cy, smooth.alpha),
+  lerp(smooth.pos[2], cz, smooth.alpha),
+];
+if (!smooth.dir) smooth.dir = [fx, fy, fz];
+else smooth.dir = nrm(
+  lerp(smooth.dir[0], fx, smooth.alpha),
+  lerp(smooth.dir[1], fy, smooth.alpha),
+  lerp(smooth.dir[2], fz, smooth.alpha)
+);
+
+cx = smooth.pos[0]; cy = smooth.pos[1]; cz = smooth.pos[2];
+fx = smooth.dir[0]; fy = smooth.dir[1]; fz = smooth.dir[2];
+
+const yawDeg = Math.atan2(fx, fz) * 180 / Math.PI;
+const pitchDeg = Math.asin(Math.max(-1, Math.min(1, fy))) * 180 / Math.PI;
+const fov = state.fov;
+
+// nicer logs: show both world-space & raw view-space (for sanity checks)
+console.log(
+  `${TAG} Cam@WORLD (x,y,z): ${num(cx)}, ${num(cy)}, ${num(cz)} | ` +
+  `FOV: ${num(fov)} | Dir (x,y,z): ${num(fx)}, ${num(fy)}, ${num(fz)} | ` +
+  `Angles (yaw,pitch): ${num(yawDeg)}, ${num(pitchDeg)} | ` +
+  `RAW view t: ${num(tview[0])}, ${num(tview[1])}, ${num(tview[2])}`
+);
+
+// broadcast world-space coords (plus dir/fov)
+try {
+  window.postMessage({
+    __mt: true,
+    type: "MT_COORDS",
+    // WORLD space:
+    x: cx, y: cy, z: cz,
+    // Direction (world)
+    fx, fy, fz,
+    fov, yawDeg, pitchDeg,
+    // optional: include raw in case other tools want it
+    tvx: tview[0], tvy: tview[1], tvz: tview[2],
+  }, "*");
+} catch {}
 	  }
   
 	  glProto.drawArrays   = function() { try { tick(); } catch {} return origDrawArrays.apply(this, arguments); };

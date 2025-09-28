@@ -1,12 +1,16 @@
 {
-	"name": "Marble HUD",
+	"name": "World Labubus",
 	"version": "0.0.1",
 	"manifest_version": 3,
-	"description": "React HUD on Marble worlds.",
+	"description": "The Daily Labubus of World Labs",
 	"permissions": ["storage"],
-	"host_permissions": ["https://marble.worldlabs.ai/*",   "https://*.supabase.co/*",
-	"https://*.functions.supabase.co/*"],
-  
+	"host_permissions": ["https://marble.worldlabs.ai/*",   "https://crhnspzmicnswhylloxk.supabase.co/*",
+	"https://crhnspzmicnswhylloxk.functions.supabase.co/*"],
+    "icons": {
+		"16": "icon16.png",
+		"48": "icon48.png",
+		"128": "icon128.png"
+	  },
 	"content_scripts": [
 	  {
 		"matches": ["https://marble.worldlabs.ai/*"],
@@ -23,7 +27,7 @@
 	],
 	"web_accessible_resources": [
   {
-    "resources": ["logo.png", "labubu.glb"],
+    "resources": ["logo.png", "labubu.glb", "icon16.png", "icon48.png", "icon128.png"],
     "matches": ["https://marble.worldlabs.ai/*"]
   }
 ]

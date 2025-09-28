@@ -3,7 +3,8 @@
 	"private": true,
 	"scripts": {
 		"build": "vite build",
-		"dev": "vite build --watch"
+		"dev": "vite build --watch",
+		"zip": "rm -f labubus-dist.zip && (cd dist && zip -r ../labubus-dist.zip .)"
 	},
 	"devDependencies": {
 		"@tailwindcss/postcss": "^4.1.13",

@@ -1,7 +1,7 @@
 // src/hud.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { getLeaderboard, getMyScore, getToday, joinContest, Labubu, LeaderRow } from "./fn";
+import { getLeaderboard, getMyScore, getToday, joinContest, Labubu, LeaderRow, isClaimed } from "./fn";
 
 const ID = "react-marble-hud";
 const Z = 2147483647;
@@ -185,6 +185,9 @@ function Panel() {
   const [leaders, setLeaders] = useState<LeaderRow[]>([]);
   const [myScore, setMyScore] = useState<number>(0);
   const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [claimedToday, setClaimedToday] = useState<boolean>(false);
+  const [inRightWorld, setInRightWorld] = useState<boolean>(false);
+  const [nearLabubu, setNearLabubu] = useState<boolean>(false);
 
   // mount sizing
   useEffect(() => {
@@ -210,6 +213,21 @@ function Panel() {
     };
     window.addEventListener("message", onMsg, true);
     return () => window.removeEventListener("message", onMsg, true);
+  }, []);
+
+  // listen for proximity events from labubu overlay
+  useEffect(() => {
+    const onProx = (ev: Event) => {
+      const detail = (ev as CustomEvent).detail || {};
+      setNearLabubu(Boolean(detail?.near));
+    };
+    window.addEventListener("LABUBU_PROXIMITY", onProx as EventListener, true);
+    const onClaimed = () => setClaimedToday(true);
+    window.addEventListener("LABUBU_CLAIMED", onClaimed as EventListener, true);
+    return () => {
+      window.removeEventListener("LABUBU_PROXIMITY", onProx as EventListener, true);
+      window.removeEventListener("LABUBU_CLAIMED", onClaimed as EventListener, true);
+    };
   }, []);
 
   // bootstrap identity
@@ -238,6 +256,29 @@ function Panel() {
         setToday(t);
         setLeaders(lb);
         setMyScore(score);
+
+        // derive world match
+        try {
+          const currentWorldId = (() => {
+            try {
+              const m = location.pathname.match(/\/world\/([0-9a-fA-F-]{36})/);
+              return m ? m[1] : null;
+            } catch { return null; }
+          })();
+          const todaysWorldId = (t as any)?.world_id as string | undefined;
+          setInRightWorld(Boolean(currentWorldId && todaysWorldId && currentWorldId === todaysWorldId));
+        } catch {}
+
+        // check claimed status (once per load)
+        try {
+          const labubuId: string | undefined = (t as any)?.labubu_id ?? (t as any)?.id;
+          if (labubuId) {
+            const c = await isClaimed(playerId, labubuId);
+            if (!dead) setClaimedToday(Boolean(c));
+          } else {
+            if (!dead) setClaimedToday(false);
+          }
+        } catch {}
       } catch (e: any) {
         if (!dead) setLoadErr(e?.message || "Failed to load data");
       }
@@ -368,17 +409,26 @@ function Panel() {
         </div>
       </div>
 
-      <div style={{
-        padding: "10px 14px", fontSize: 12, opacity: 0.8,
-        display: "flex", justifyContent: "space-between", alignItems: "center"
-      }}>
-        <span style={{
-          padding: "3px 8px", background: "rgba(255,255,255,.12)",
-          borderRadius: 999, fontSize: 12
-        }}>beta</span>
-        <span style={{ maxWidth: 200, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
-          {username}
-        </span>
+      {/* Bottom status bar (color-only) */}
+      <div style={{ padding: "10px 14px" }}>
+        {(() => {
+          let bg = "#ef4444"; // red
+          if (claimedToday) bg = "#22c55e"; // green
+          else if (inRightWorld) bg = "#f59e0b"; // yellow
+          return (
+            <div
+              aria-label="labubu-status"
+              title={claimedToday ? "claimed" : inRightWorld ? (nearLabubu ? "near" : "in-world") : "wrong-world"}
+              style={{
+                width: "100%",
+                height: 6,
+                borderRadius: 999,
+                background: bg,
+                boxShadow: "inset 0 0 0 1px rgba(255,255,255,.12)",
+              }}
+            />
+          );
+        })()}
       </div>
     </div>
   );
