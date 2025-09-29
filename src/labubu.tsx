@@ -1,5 +1,5 @@
 // src/labubu.tsx (CLEAN VERSION: Simple Distance-Only, No Debug/Extra Visuals)
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -64,12 +64,14 @@ async function getOrCreatePlayerId(): Promise<string> {
 
 function LabubuThree() {
   const mountRef = useRef<HTMLDivElement | null>(null);
+  const [canRender, setCanRender] = useState(false);
 
   const targetRef = useRef<THREE.Vector3 | null>(null);
-  const radiusRef = useRef<number>(2.0);
+  const radiusRef = useRef<number>(0.01);
   const labubuIdRef = useRef<string | null>(null);
   const claimedRef = useRef<boolean>(false);
   const modelRef = useRef<THREE.Object3D | null>(null);
+  const todaysWorldIdRef = useRef<string | null>(null);
 
   const applyClaimedLook = (claimed: boolean) => {
     const root = modelRef.current;
@@ -102,11 +104,13 @@ function LabubuThree() {
 
         const currentWorldId = getCurrentWorldId();
         const todaysWorldId = t.world_id ?? null;
+        todaysWorldIdRef.current = todaysWorldId;
         if (!currentWorldId || !todaysWorldId || currentWorldId !== todaysWorldId) {
           labubuIdRef.current = null;
           targetRef.current = null;
           const container = document.getElementById(LABUBU_ID) as HTMLDivElement | null;
           if (container) container.style.display = "none";
+          setCanRender(false);
           return;
         }
 
@@ -128,6 +132,9 @@ function LabubuThree() {
         } catch (e) {
           console.warn("[Labubu] isClaimed failed", e);
         }
+
+        // World id matches and target is set; allow renderer to initialize
+        setCanRender(true);
       } catch (e) {
         console.warn("[Labubu] Failed to load today", e);
       }
@@ -135,12 +142,51 @@ function LabubuThree() {
     return () => { dead = true; };
   }, []);
 
+  // React to URL/world changes (SPA navigation): ensure we don't render on non-matching world pages
+  useEffect(() => {
+    let dead = false;
+    const check = () => {
+      if (dead) return;
+      const current = getCurrentWorldId();
+      const today = todaysWorldIdRef.current;
+      const match = !!current && !!today && current === today;
+      if (!match && canRender) {
+        // Tear down/hide if we navigated away
+        labubuIdRef.current = null;
+        targetRef.current = null;
+        const container = document.getElementById(LABUBU_ID) as HTMLDivElement | null;
+        if (container) container.style.display = "none";
+        setCanRender(false);
+      } else if (match && !canRender && targetRef.current) {
+        // If we navigated back to the correct world and have data, allow render
+        setCanRender(true);
+      }
+    };
+    const onPop = () => { try { check(); } catch {} };
+    const onHash = () => { try { check(); } catch {} };
+    const timer = setInterval(check, 1000);
+    window.addEventListener("popstate", onPop);
+    window.addEventListener("hashchange", onHash);
+    return () => {
+      dead = true;
+      clearInterval(timer);
+      window.removeEventListener("popstate", onPop);
+      window.removeEventListener("hashchange", onHash);
+    };
+  }, [canRender]);
+
   // Listen for coords -> show/hide (Simple: Distance-only)
   useEffect(() => {
     let lastNear = false;
     const onMsg = (ev: MessageEvent) => {
       const d = ev?.data;
       if (!d || !d.__mt || d.type !== "MT_COORDS") return;
+      // Do not show if we are not allowed to render (world mismatch)
+      if (!canRender) {
+        const container = document.getElementById(LABUBU_ID) as HTMLDivElement | null;
+        if (container) container.style.display = "none";
+        return;
+      }
       const pos = new THREE.Vector3(Number(d.x)||0, Number(d.y)||0, Number(d.z)||0);
       const tgt = targetRef.current;
       const radius = radiusRef.current || 0;
@@ -175,10 +221,12 @@ function LabubuThree() {
     };
     window.addEventListener("message", onMsg, true);
     return () => window.removeEventListener("message", onMsg, true);
-  }, []);
+  }, [canRender]);
 
   // Three.js renderer (clean, white model)
   useEffect(() => {
+    // Only initialize renderer when world_id matches today's
+    if (!canRender) return;
     const mount = mountRef.current!;
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -275,7 +323,7 @@ function LabubuThree() {
       });
       mount.removeChild(renderer.domElement);
     };
-  }, []);
+  }, [canRender]);
 
   // Click-to-claim
   useEffect(() => {
