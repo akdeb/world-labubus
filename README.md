@@ -1,20 +1,19 @@
 ## World Labubus
 
 World Labubus is a daily, Wordle-like game built on [Marble](https://marble.worldlabs.ai) by World Labs — find the hidden Labubu each day with hints, compete on a leaderboard, and enjoy worlds created from images or text.
+![World Labubus cover](public/assets/labubusframe.png)
+
 
 ### Quick demo (3 min)
 
-<iframe
-  width="100%"
-  height="400"
-  src="https://www.youtube.com/embed/WoYWYhJIe_I"
-  title="World Labubus demo"
-  frameborder="0"
-  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-  allowfullscreen
-></iframe>
+<a href="https://www.youtube.com/watch?v=WoYWYhJIe_I" target="_blank" rel="noopener noreferrer">
+  <img
+    src="public/assets/youtube.png"
+    alt="World Labubus demo (YouTube)"
+    style="display: block; width: 100%; max-width: 720px; margin: 12px auto; border-radius: 12px;"
+  />
+</a>
 
-![World Labubus cover](public/assets/labubusframe.png)
 
 ### Add the Chrome extension
 
