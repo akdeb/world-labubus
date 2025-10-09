@@ -1,6 +1,6 @@
 {
 	"name": "World Labubus",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"manifest_version": 3,
 	"description": "The Daily Labubus of World Labs",
 	"permissions": ["storage"],
